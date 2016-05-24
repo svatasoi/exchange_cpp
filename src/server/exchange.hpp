@@ -8,6 +8,7 @@
 #include <boost/asio.hpp>
 #include "linked_list/linked_list.cpp"
 #include "concurrent_map/concurrent_map.cpp"
+#include "bid_offer.cpp"
 #include "message/message.hpp"
 
 using boost::asio::ip::tcp;
@@ -32,6 +33,7 @@ public:
     void terminate();
     void deliver(const message_from_server& msg);
 private:
+    int handle_message(const char *header, const char *body);
     void do_read_header();
     void do_read_body();
     void do_write();
@@ -72,8 +74,8 @@ public:
     explicit exchange();
     void join(Client client);
     
-    void add_bid();
-    void add_offer();
+    void add_bid(bid b);
+    void add_offer(offer b);
     void get_quote();
 private:
     // set<Client> _clients;

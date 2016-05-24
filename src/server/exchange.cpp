@@ -7,17 +7,12 @@
 #include <boost/asio.hpp>
 #include "linked_list/linked_list.cpp"
 #include "concurrent_map/concurrent_map.cpp"
+#include "bid_offer.cpp"
 #include "./exchange.hpp"
 #include "message/message.hpp"
 
 using boost::asio::ip::tcp;
 using namespace std;
-
-class bid;
-class offer;
-
-typedef string symbol_t;
-typedef double amount_t;
 
 // -----------------client_session-----------------
 
@@ -78,14 +73,38 @@ void client_session::do_read_body()
         {
             if (!ec)
             {
-                // room_.deliver(read_msg_);
-                do_read_header();
+                // process header+body (stored in _client_msg)
+                // pass header,body to handle_message
+                try {
+                    int err = handle_message(_client_msg.data(), _client_msg.body());
+                    if (!err)
+                        do_read_header();
+                    else
+                        terminate();
+                }
+                catch (exception &ex) {
+                    terminate();
+                }
             }
             else
             {
                 terminate();
             }
         });
+}
+
+int client_session::handle_message(const char *header, const char *body) {
+    client_header_t head = static_cast<client_header_t>(header);
+    switch (head.type) {
+    case BID:
+        _exchange.add_bid(static_cast<bid>(body));
+        break;
+    case OFFER:
+        _exchange.add_offer(static_cast<offer>(body));
+        break;
+    default:
+        throw "Unknown type";
+    };
 }
 
 void client_session::do_write()
@@ -133,41 +152,6 @@ void Client::disconnect(client_sess_ptr session) {
     _all_clients.erase(session->get_hash());
 }
 
-// -----------------bids and offers--------------------------
-
-class bid_offer {
-public: 
-    bid_offer(string s, double v, int vol) 
-        : sym(s), value(v), volume(vol) {}
-        
-    friend bool operator> (const bid_offer &c1, const bid_offer &c2) {
-        return c1.value > c2.value;
-    }
-    friend bool operator<= (const bid_offer &c1, const bid_offer &c2) {
-        return c1.value <= c2.value;
-    }
-    friend bool operator< (const bid_offer &c1, const bid_offer &c2) {
-        return c1.value < c2.value;
-    }
-    friend bool operator>= (const bid_offer &c1, const bid_offer &c2){
-        return c1.value >= c2.value;
-    }
-protected:
-    symbol_t sym;
-    amount_t value;
-    int      volume;
-};
-
-class bid : bid_offer {
-public:
-    bid(string s, double v, int vol) : bid_offer(s,v,vol) {}
-};
-
-class offer : bid_offer {
-public:
-    offer(string s, double v, int vol) : bid_offer(s,v,vol) {}
-};
-
 // -----------------exchange--------------------------
 
 #define NUM_BUCKETS 20
@@ -179,6 +163,14 @@ inline int compare_str(string& s1, string& s2) {
 	return s1.compare(s2);
 }
 
+void exchange::add_bid(bid b) {
+    
+}
+
+void exchange::add_offer(offer o) {
+    
+}
+    
 exchange::exchange() {
     /*LinkedList<symbol_t, priority_queue<bid>> list(&compare_str, "", new priority_queue<bid>());
     bids_ = new ConcurrentMap(&silly_hash, list, NUM_BUCKETS); 

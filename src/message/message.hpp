@@ -4,16 +4,21 @@
 #include <cstdlib>
 #include <cstring>
 
-enum message_type { bid, offer };
-struct header_t {
-    message_type type;
+enum client_message_type { BID=0, OFFER=1 };
+struct client_header_t {
+    client_header_t(const char *header) 
+        : type(static_cast<client_message_type>(atoi(header))), 
+          body_length(atoi(header+sizeof(client_message_type))) {}
+    
+    client_message_type type;
     int body_length;
 };
 
 class message
 {
 public:
-    enum { header_length = sizeof(header_t) };
+    static const int header_length = sizeof(client_header_t);
+    // enum { header_length = sizeof(header_t) };
     enum { max_body_length = 512 };
 
     message();
