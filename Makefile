@@ -2,7 +2,7 @@ CC = g++
 CFLAGS = -std=c++11 -Wall -pedantic -g -Isrc -Itests
 LIBS = -pthread
 
-SRCDIR    := src src/linked_list src/binary_tree src/concurrent_map src/server src/client
+SRCDIR    := src src/linked_list src/binary_tree src/concurrent_map src/server src/client src/message
 TESTDIR   := tests tests/linked_list tests/binary_tree tests/concurrent_map
 SRC       := $(foreach dr, $(SRCDIR), $(wildcard $(dr)/*.[ch]pp))
 TEST      := $(foreach dr, $(TESTDIR), $(wildcard $(dr)/*.[ch]pp))
