@@ -6,8 +6,10 @@
 using namespace std;
 
 #define SYMBOL_LEN 4
+
 typedef string symbol_t;
 typedef double amount_t;
+typedef size_t token_t;
 
 // -----------------bids and offers--------------------------
 
@@ -34,10 +36,11 @@ public:
     friend bool operator>= (const bid_offer &c1, const bid_offer &c2){
         return c1.value >= c2.value;
     }
-protected:
+    
     symbol_t sym;
     amount_t value;
     int      volume;
+    token_t  token;
 };
 
 class bid : public bid_offer {

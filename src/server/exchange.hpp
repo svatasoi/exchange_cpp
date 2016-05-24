@@ -6,8 +6,6 @@
 #include <queue>
 #include <memory>
 #include <boost/asio.hpp>
-#include "linked_list/linked_list.cpp"
-#include "concurrent_map/concurrent_map.cpp"
 #include "bid_offer.cpp"
 #include "message/message.hpp"
 
@@ -15,6 +13,7 @@ using boost::asio::ip::tcp;
 using namespace std;
 
 class exchange;
+class Client;
 
 // ------------------client_session----------------------------------
 
@@ -41,6 +40,7 @@ private:
     tcp::socket _socket;
     exchange& _exchange;
     message_from_client _client_msg;
+    Client *_client;
 //   chat_message_queue write_msgs_;
 };
 
@@ -54,6 +54,8 @@ public:
     static Client *connect(client_sess_ptr session);
     static void disconnect(client_sess_ptr session);
     
+    token_t get_token();
+    
     friend bool operator< (const Client &c1, const Client &c2) {
         return c1._token < c2._token;
     }
@@ -62,8 +64,8 @@ private:
     void message_client();
     
     client_sess_ptr _session; // ptr to active session, if there is one
-    size_t _token;
-    static map<size_t, Client*> _all_clients;
+    token_t _token;
+    static map<token_t, Client*> _all_clients;
 };
 
 class exchange
@@ -72,16 +74,17 @@ public:
     static hash<string> str_hash;
     
     explicit exchange();
-    void join(Client client);
+    void join(Client *client);
     
-    void add_bid(bid b);
-    void add_offer(offer b);
+    void add_bid(bid b, token_t tok);
+    void add_offer(offer b, token_t tok);
     void get_quote();
 private:
-    // set<Client> _clients;
-    /*
-    ConcurrentMap<symbol_t, priority_queue<bid>, LinkedList<symbol_t, priority_queue<bid>>> bids_;
-    ConcurrentMap<symbol_t, priority_queue<offer>, LinkedList<symbol_t, priority_queue<offer>>> offers_;
-    */
+    set<Client *> _clients;
+    
+    // NOT YET THREAD SAFE
+    map<symbol_t, priority_queue<bid>> _bids;
+    map<symbol_t, priority_queue<offer>> _offers;
+    
     void message_client();
 };

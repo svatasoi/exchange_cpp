@@ -26,7 +26,11 @@ size_t client_session::get_hash() {
 
 void client_session::start() {
     // register as client to exchange
-    Client::connect(shared_from_this());
+    Client *c = Client::connect(shared_from_this());
+    
+    // join the exchange
+    _exchange.join(c);
+    _client = c;
     
     // start reading from client
     async(std::launch::async, [this](){ do_read_header(); });
@@ -97,10 +101,10 @@ int client_session::handle_message(const char *header, const char *body) {
     client_header_t head = static_cast<client_header_t>(header);
     switch (head.type) {
     case BID:
-        _exchange.add_bid(static_cast<bid>(body));
+        _exchange.add_bid(static_cast<bid>(body), _client->get_token());
         break;
     case OFFER:
-        _exchange.add_offer(static_cast<offer>(body));
+        _exchange.add_offer(static_cast<offer>(body), _client->get_token());
         break;
     default:
         throw "Unknown type";
@@ -135,6 +139,10 @@ void client_session::do_write()
 Client::Client(client_sess_ptr session) 
     : _session(session), _token(session->get_hash()) {}
 
+token_t Client::get_token() {
+    return _token;
+}
+
 Client *Client::connect(client_sess_ptr session) {
     size_t hash = session->get_hash();
     auto cli = _all_clients.find(session->get_hash());
@@ -163,12 +171,16 @@ inline int compare_str(string& s1, string& s2) {
 	return s1.compare(s2);
 }
 
-void exchange::add_bid(bid b) {
-    
+void exchange::add_bid(bid b, token_t tok) {
+    cout << "Added bid to exchange" << endl;
+    b.token = tok;
+    _bids[b.sym].push(b);
 }
 
-void exchange::add_offer(offer o) {
-    
+void exchange::add_offer(offer o, token_t tok) {
+    cout << "Added offer to exchange" << endl;
+    o.token = tok;
+    _offers[o.sym].push(o);
 }
     
 exchange::exchange() {
@@ -179,6 +191,6 @@ exchange::exchange() {
     offers_ = new ConcurrentMap(&silly_hash, list_o, NUM_BUCKETS); */
 }
 
-void exchange::join(Client client) {
-    // _clients.insert(client);
+void exchange::join(Client *client) {
+    _clients.insert(client);
 }
