@@ -2,10 +2,10 @@ CC = g++
 CFLAGS = -std=c++11 -Wall -pedantic -g -Isrc -Itests
 LIBS = -pthread
 
-SRCDIR    := src src/linked_list src/binary_tree src/concurrent_map
+SRCDIR    := src src/linked_list src/binary_tree src/concurrent_map src/server src/client
 TESTDIR   := tests tests/linked_list tests/binary_tree tests/concurrent_map
-SRC       := $(foreach dr, $(SRCDIR), $(wildcard $(dr)/*.cpp))
-TEST      := $(foreach dr, $(TESTDIR), $(wildcard $(dr)/*.cpp))
+SRC       := $(foreach dr, $(SRCDIR), $(wildcard $(dr)/*.[ch]pp))
+TEST      := $(foreach dr, $(TESTDIR), $(wildcard $(dr)/*.[ch]pp))
 OBJS      := $(addsuffix .o,$(basename $(SRC)))
 TESTOBJS  := $(addsuffix .o,$(basename $(TEST)))
 TESTBASE  := tests
