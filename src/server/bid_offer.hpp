@@ -40,12 +40,14 @@ public:
 
 class bid : public bid_offer {
 public:
+    bid() : bid_offer() {}
     bid(const char *msg) : bid_offer(msg) {}
     bid(string s, double v, int vol) : bid_offer(s,v,vol) {}
 };
 
 class offer : public bid_offer {
 public:
+    offer() : bid_offer() {}
     offer(const char *msg) : bid_offer(msg) {}
     offer(string s, double v, int vol) : bid_offer(s,v,vol) {}
 };

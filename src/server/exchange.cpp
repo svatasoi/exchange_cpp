@@ -169,6 +169,11 @@ int client_session::handle_message(const char *head, const char *body) {
     default:
         throw "Unknown type";
     };
+    
+    // must work (fix later)
+    bid_offer bo = static_cast<bid_offer>(body);
+    _exchange.check_matches(bo.sym);
+    
     return 0;
 }
 
@@ -238,14 +243,55 @@ inline int compare_str(string& s1, string& s2) {
 
 void exchange::add_bid(bid b, token_t tok) {
     b.token = tok;
-    // _bids[b.sym].push(b);
+    _bids[b.sym].lock();
+    _bids[b.sym].push(b);
+    _bids[b.sym].unlock();
     cout << "[client " << tok << "]: " << b.volume << " " << b.sym << " bid @ $" << b.value << endl;
 }
 
 void exchange::add_offer(offer o, token_t tok) {
     o.token = tok;
-    // _offers[o.sym].push(o);
+    _offers[o.sym].lock();
+    _offers[o.sym].push(o);
+    _offers[o.sym].unlock();
     cout << "[client " << tok << "]: " << o.volume << " " << o.sym << " offer @ $" << o.value << endl;
+}
+
+void exchange::check_matches(symbol_t sym) {
+    // try to match bid+offer
+    // get symbol_t
+    // lock both priority_queue's
+    // while best_bid >= best_offer (and not same buyer/seller)
+    // match best to best
+    safe_queue<bid> &bid_q = _bids[sym];
+    safe_queue<offer> &offer_q = _offers[sym];
+    
+    bid_q.lock();
+    offer_q.lock();
+    
+    if (bid_q.empty() || offer_q.empty()) {
+        offer_q.unlock();
+        bid_q.unlock();
+        return;
+    }
+        
+    // volume!!
+    // lock
+    bid matched_bid;
+    offer matched_offer;
+    while (!bid_q.empty() && !offer_q.empty() 
+        && (matched_bid = bid_q.top()) >= (matched_offer = offer_q.top())) {
+        bid_q.pop();
+        offer_q.pop();
+        match(matched_bid, matched_offer);
+    }
+    offer_q.unlock();
+    bid_q.unlock();
+    // unlock
+}
+
+void exchange::match(bid &b, offer &o) {
+    cout << "Matched bid " << b.value << " and offer " << o.value << endl;
 }
     
 exchange::exchange() {

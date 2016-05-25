@@ -72,6 +72,15 @@ private:
     static mutex _mtx;
 };
 
+template<class T>
+class safe_queue : public priority_queue<T> {
+public:
+    safe_queue() { mtx = new mutex(); }
+    void lock() { mtx->lock(); }
+    void unlock() { mtx->unlock(); }
+    mutex *mtx;
+};
+
 class exchange
 {
 public:
@@ -82,13 +91,17 @@ public:
     
     void add_bid(bid b, token_t tok);
     void add_offer(offer b, token_t tok);
+    void check_matches(symbol_t sym);
     void get_quote();
 private:
     set<Client *> _clients;
+    void match(bid &b, offer &o);
     
     // NOT YET THREAD SAFE
-    map<symbol_t, priority_queue<bid>> _bids;
-    map<symbol_t, priority_queue<offer>> _offers;
+    // also, one of these needs to be in reverse order!
+    // bids should be max-heap, offers should be min-heap
+    map<symbol_t, safe_queue<bid>> _bids;
+    map<symbol_t, safe_queue<offer>> _offers;
     
     void message_client();
 };

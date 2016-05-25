@@ -16,11 +16,6 @@ bid_offer::bid_offer(const char *msg) {
     sym = string(body->sym);
     value = body->price;
     volume = body->volume;
-    
-    
-    // stringstream input{string{msg}};
-    
-    // input >> sym >> value >> volume;
 }
 
 bid_offer::bid_offer(string s, double v, int vol) 
