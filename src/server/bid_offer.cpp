@@ -2,6 +2,7 @@
 #include <cstring>
 #include <sstream>
 
+#include "message/message.hpp"
 #include "server/bid_offer.hpp"
 
 using namespace std;
@@ -11,9 +12,15 @@ using namespace std;
 bid_offer::bid_offer() : sym("aaaa"), value(-1), volume(-1) {}
 
 bid_offer::bid_offer(const char *msg) {
-    stringstream input{string{msg}};
+    client_body_t *body = (client_body_t *)(msg);
+    sym = string(body->sym);
+    value = body->price;
+    volume = body->volume;
     
-    input >> sym >> value >> volume;
+    
+    // stringstream input{string{msg}};
+    
+    // input >> sym >> value >> volume;
 }
 
 bid_offer::bid_offer(string s, double v, int vol) 

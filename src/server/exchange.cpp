@@ -4,6 +4,8 @@
 #include <queue>
 #include <memory>
 #include <future>
+#include <thread>
+#include <mutex>
 #include <boost/asio.hpp>
 
 #include "bid_offer.hpp"
@@ -14,6 +16,7 @@ using boost::asio::ip::tcp;
 using namespace std;
 
 map<token_t, Client*> Client::_all_clients;
+mutex Client::_mtx;
 
 // -----------------client_session-----------------
 
@@ -105,9 +108,58 @@ void client_session::do_read_body()
         });
 }
 
-int client_session::handle_message(const char *header, const char *body) {
-    client_header_t head = static_cast<client_header_t>(header);
-    switch (head.type) {
+
+/* Sequential read :(
+void client_session::do_read_header()
+{
+    boost::system::error_code ec;
+    boost::asio::read(_socket, boost::asio::buffer(_client_msg.data(), message::header_length), ec);
+        
+    if (!ec && _client_msg.decode_header())
+    {
+        do_read_body();
+    }
+    else
+    {
+        cout << "Error reading message header [" << ec << "]: " << ec.message() << " | " << _client_msg.data() << endl;
+        terminate();
+    }
+}
+
+void client_session::do_read_body()
+{
+    boost::system::error_code ec;
+    cout << "Bout to read " << _client_msg.body_length() << " bytes" << endl;
+    boost::asio::read(_socket, boost::asio::buffer(_client_msg.body(), _client_msg.body_length()), ec);
+    if (!ec)
+    {
+        // process header+body (stored in _client_msg)
+        // pass header,body to handle_message
+        try {
+            int err = handle_message(_client_msg.data(), _client_msg.body());
+            if (err < 0) {
+                cout << "Error handling message" << endl;
+                terminate();
+            } else
+                do_read_header();
+        }
+        catch (...) {
+            cout << "Exception handling message" << endl;
+            terminate();
+        }
+    }
+    else
+    {
+        cout << " Error reading body" << endl;
+        terminate();
+    }
+}
+*/
+
+int client_session::handle_message(const char *head, const char *body) {
+    // client_header_t head = static_cast<client_header_t>(header);
+    client_header_t *header = (client_header_t *)head;
+    switch (header->type) {
     case BID:
         _exchange.add_bid(static_cast<bid>(body), _client->get_token());
         break;
@@ -153,6 +205,7 @@ token_t Client::get_token() {
 }
 
 Client *Client::connect(client_sess_ptr session) {
+    _mtx.lock();
     size_t hash = session->get_hash();
     auto cli = _all_clients.find(session->get_hash());
     if (cli == _all_clients.end()) {
@@ -164,6 +217,7 @@ Client *Client::connect(client_sess_ptr session) {
         _all_clients[hash]->_session = session;
         cout << "Welcome back (" << _all_clients[hash]->get_token() << ")" << endl;
     }
+    _mtx.unlock();
     return _all_clients[hash];
 }
 
@@ -184,13 +238,13 @@ inline int compare_str(string& s1, string& s2) {
 
 void exchange::add_bid(bid b, token_t tok) {
     b.token = tok;
-    _bids[b.sym].push(b);
+    // _bids[b.sym].push(b);
     cout << "[client " << tok << "]: " << b.volume << " " << b.sym << " bid @ $" << b.value << endl;
 }
 
 void exchange::add_offer(offer o, token_t tok) {
     o.token = tok;
-    _offers[o.sym].push(o);
+    // _offers[o.sym].push(o);
     cout << "[client " << tok << "]: " << o.volume << " " << o.sym << " offer @ $" << o.value << endl;
 }
     

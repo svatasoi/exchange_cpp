@@ -29,3 +29,5 @@
 
 # visual studio code files
 .vscode/*
+
+logs/*

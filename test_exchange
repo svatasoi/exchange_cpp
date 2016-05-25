@@ -3,9 +3,11 @@
 SERVERPORT=8888
 HOST=localhost
 LOGDIR=logs
-NUMCOMMANDS=5
+NUMCOMMANDS=100
 
-mkdir logs
+if [ ! -d "$LOGDIR" ]; then
+    mkdir $LOGDIR
+fi
 
 if [ -z $1 ] 
     then

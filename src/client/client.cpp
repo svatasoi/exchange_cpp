@@ -3,6 +3,9 @@
 #include <iostream>
 #include <thread>
 #include <string>
+
+#include <chrono>
+
 #include <boost/asio.hpp>
 #include "message/message.hpp"
 
@@ -145,12 +148,16 @@ int main(int argc, char* argv[])
       if (err < 0) {
           std::cout << "Invalid message" << std::endl;
           continue;
-      }  else if (err == 0) {
+      } else if (err == 0) {
           std::cout << "Exiting on: " << input << std::endl;
           break;
       }
       c.write(msg);
     }
+    
+    // sleep
+    // mehh for script to work?
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
 
     c.close();
     t.join();

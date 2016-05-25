@@ -7,12 +7,14 @@
 
 enum client_message_type { BID=0, OFFER=1 };
 struct client_header_t {
-    client_header_t(const char *header) 
-        : type(static_cast<client_message_type>(atoi(header))), 
-          body_length(atoi(header+sizeof(client_message_type))) {}
-    
     client_message_type type;
     int body_length;
+};
+
+struct client_body_t {
+    char sym[4];
+    double price;
+    int volume;
 };
 
 class message

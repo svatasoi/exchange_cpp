@@ -4,7 +4,7 @@ import sys
 import random
 
 COMMANDS_TYPES=["bid","offer"]
-SYMBOLS=["msft","aapl","aegr"]
+SYMBOLS=["MSFT","AAPL","AEGR"]
 MIN_PRICE=1.0
 MAX_PRICE=1000.0
 MIN_VOLUME=1

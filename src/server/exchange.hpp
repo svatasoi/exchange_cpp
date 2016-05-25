@@ -5,6 +5,8 @@
 #include <map>
 #include <queue>
 #include <memory>
+#include <thread>
+#include <mutex>
 #include <boost/asio.hpp>
 
 #include "bid_offer.hpp"
@@ -67,6 +69,7 @@ private:
     client_sess_ptr _session; // ptr to active session, if there is one
     token_t _token;
     static map<token_t, Client*> _all_clients;
+    static mutex _mtx;
 };
 
 class exchange

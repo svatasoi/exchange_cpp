@@ -49,15 +49,21 @@ void message::body_length(std::size_t new_length)
 // --------message from client->server--------
 
 bool message_from_client::decode_header() {
-    char header[header_length + 1] = "";
-    std::strncat(header, _data, header_length);
+    // char header[header_length + 1] = "";
+    // std::strncat(header, _data, header_length);
     
-    stringstream head{string(header)};
+    // stringstream head{string(header)};
     
-    int mess_type;
-    head >> mess_type >> _body_length;
+    // int mess_type;
+    // head >> mess_type >> _body_length;
     
-    _message_type = static_cast<client_message_type>(mess_type);
+    // _message_type = static_cast<client_message_type>(mess_type);
+    
+    client_header_t *header = (client_header_t *)_data;
+    _message_type = header->type;
+    _body_length = header->body_length;
+    // std::memcpy(_data, &header, header_length);
+    
     if (_body_length > max_body_length)
     {
       _body_length = 0;
@@ -67,11 +73,15 @@ bool message_from_client::decode_header() {
 }
 
 void message_from_client::encode_header() {
-    char header[header_length + 1] = "";
-    std::sprintf(header, "%d %d", 
-        static_cast<int>(_message_type), 
-        static_cast<int>(_body_length));
-    std::memcpy(_data, header, header_length);
+    // char header[header_length + 1] = "";
+    // std::sprintf(header, "%d %d", 
+    //     static_cast<int>(_message_type), 
+    //     static_cast<int>(_body_length));
+    
+    client_header_t header{};
+    header.type = _message_type;
+    header.body_length = _body_length;
+    std::memcpy(_data, &header, header_length);
 }
 
 #define MAX_BUFFER_LENGTH 512
@@ -104,10 +114,16 @@ int message_from_client::encode_body(string in) {
     // 4 is SYMBOL_LEN
     res = std::sprintf(body(), "%4s %lf %d", 
         bo.sym.c_str(), bo.value, bo.volume);
-    if (res < 0) {
-        return res;
-    }
-    _body_length = res;
+        
+    client_body_t bod{};
+    std::memcpy(bod.sym, bo.sym.c_str(), SYMBOL_LEN); 
+    bod.price = bo.value;
+    bod.volume= bo.volume;
+    std::memcpy(body(), &bod, sizeof(bod));
+    // if (res < 0) {
+    //     return res;
+    // }
+    _body_length = sizeof(bod);
     
     encode_header();
     return _body_length;
