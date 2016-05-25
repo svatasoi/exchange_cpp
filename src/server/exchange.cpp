@@ -66,7 +66,7 @@ void client_session::do_read_header()
         {
             if (!ec && _client_msg.decode_header())
             {
-                do_read_body();
+                do_read_body(); // couldn't this cause stack overflow? mutually recursive
             }
             else
             {
@@ -263,8 +263,8 @@ void exchange::check_matches(symbol_t sym) {
     // lock both priority_queue's
     // while best_bid >= best_offer (and not same buyer/seller)
     // match best to best
-    safe_queue<bid> &bid_q = _bids[sym];
-    safe_queue<offer> &offer_q = _offers[sym];
+    auto &bid_q = _bids[sym];
+    auto &offer_q = _offers[sym];
     
     bid_q.lock();
     offer_q.lock();

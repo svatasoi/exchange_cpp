@@ -72,10 +72,11 @@ private:
     static mutex _mtx;
 };
 
-template<class T>
-class safe_queue : public priority_queue<T> {
+template<class T, class T2=vector<T>, class T3=less<T>>
+class safe_queue : public priority_queue<T,T2,T3> {
 public:
     safe_queue() { mtx = new mutex(); }
+    ~safe_queue() { delete mtx; }
     void lock() { mtx->lock(); }
     void unlock() { mtx->unlock(); }
     mutex *mtx;
@@ -101,7 +102,7 @@ private:
     // also, one of these needs to be in reverse order!
     // bids should be max-heap, offers should be min-heap
     map<symbol_t, safe_queue<bid>> _bids;
-    map<symbol_t, safe_queue<offer>> _offers;
+    map<symbol_t, safe_queue<offer, vector<offer>, greater<offer>>> _offers;
     
     void message_client();
 };
