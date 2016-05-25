@@ -146,6 +146,7 @@ int main(int argc, char* argv[])
           std::cout << "Invalid message" << std::endl;
           continue;
       }  else if (err == 0) {
+          std::cout << "Exiting on: " << input << std::endl;
           break;
       }
       c.write(msg);

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+SERVERPORT=8888
+HOST=localhost
+LOGDIR=logs
+NUMCOMMANDS=5
+
+mkdir logs
+
+if [ -z $1 ] 
+    then
+        NUMTHREADS=3
+    else
+        NUMTHREADS=$1
+fi
+
+start_server () {
+    echo "Starting server on port $SERVERPORT"
+    ./server $SERVERPORT | awk '{print "[SERVER] " $0}' &
+    SERVERPID=$!
+}
+
+run_client () {    
+    # send random commands via client
+    ./generate_commands.py $NUMCOMMANDS | ./client $HOST $SERVERPORT
+}
+
+# start server
+start_server
+
+# start clients
+pids=()
+echo "Starting $NUMTHREADS clients..."
+for (( i=1; i<=$NUMTHREADS; i++ ))
+do
+	run_client 2>&1 > $LOGDIR/client$i.log & 
+    pids+=($!)
+done
+
+# wait for clients
+for i in "${pids[@]}"
+do
+    wait $i
+done
+
+# kill server
+kill $SERVERPID
+
+echo "Done Waiting"

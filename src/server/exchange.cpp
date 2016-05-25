@@ -20,7 +20,7 @@ map<token_t, Client*> Client::_all_clients;
 size_t client_session::get_hash() {
     tcp::endpoint endpoint = _socket.remote_endpoint();
     std::ostringstream stream;
-    stream << endpoint;
+    stream << endpoint; 
     std::hash<std::string> hasher;
     return hasher(stream.str());
 }
@@ -67,6 +67,7 @@ void client_session::do_read_header()
             }
             else
             {
+                cout << "Error reading message header: " << _client_msg.data() << endl;
                 terminate();
             }
         });
@@ -85,17 +86,20 @@ void client_session::do_read_body()
                 // pass header,body to handle_message
                 try {
                     int err = handle_message(_client_msg.data(), _client_msg.body());
-                    if (err < 0)
+                    if (err < 0) {
+                        cout << "Error handling message" << endl;
                         terminate();
-                    else
+                    } else
                         do_read_header();
                 }
                 catch (...) {
+                    cout << "Exception handling message" << endl;
                     terminate();
                 }
             }
             else
             {
+                cout << " Error reading body" << endl;
                 terminate();
             }
         });
@@ -154,9 +158,11 @@ Client *Client::connect(client_sess_ptr session) {
     if (cli == _all_clients.end()) {
         // client doesn't exist
         _all_clients[hash] = new Client(session);
+        cout << "New client (" << _all_clients[hash]->get_token() << ") has connected" << endl;
     } else {
         // client already exists
         _all_clients[hash]->_session = session;
+        cout << "Welcome back (" << _all_clients[hash]->get_token() << ")" << endl;
     }
     return _all_clients[hash];
 }
@@ -177,15 +183,15 @@ inline int compare_str(string& s1, string& s2) {
 }
 
 void exchange::add_bid(bid b, token_t tok) {
-    cout << "Added bid to exchange" << endl;
     b.token = tok;
     _bids[b.sym].push(b);
+    cout << "[client " << tok << "]: " << b.volume << " " << b.sym << " bid @ $" << b.value << endl;
 }
 
 void exchange::add_offer(offer o, token_t tok) {
-    cout << "Added offer to exchange" << endl;
     o.token = tok;
     _offers[o.sym].push(o);
+    cout << "[client " << tok << "]: " << o.volume << " " << o.sym << " offer @ $" << o.value << endl;
 }
     
 exchange::exchange() {
