@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 enum client_message_type { BID=0, OFFER=1 };
 struct client_header_t {
@@ -44,6 +45,10 @@ class message_from_client : public message
 public:
     virtual bool decode_header();
     virtual void encode_header();
+    
+    int encode_body(std::string input);
+private:
+    client_message_type _message_type;
 };
 
 class message_from_server : public message

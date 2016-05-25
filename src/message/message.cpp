@@ -1,8 +1,8 @@
-#pragma once
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sstream>
+#include "server/bid_offer.hpp"
 #include "message.hpp"
 
 // -------generic message---------
@@ -51,7 +51,13 @@ void message::body_length(std::size_t new_length)
 bool message_from_client::decode_header() {
     char header[header_length + 1] = "";
     std::strncat(header, _data, header_length);
-    _body_length = std::atoi(header);
+    
+    stringstream head{string(header)};
+    
+    int mess_type;
+    head >> mess_type >> _body_length;
+    
+    _message_type = static_cast<client_message_type>(mess_type);
     if (_body_length > max_body_length)
     {
       _body_length = 0;
@@ -62,8 +68,49 @@ bool message_from_client::decode_header() {
 
 void message_from_client::encode_header() {
     char header[header_length + 1] = "";
-    std::sprintf(header, "%4d", static_cast<int>(_body_length));
+    std::sprintf(header, "%d %d", 
+        static_cast<int>(_message_type), 
+        static_cast<int>(_body_length));
     std::memcpy(_data, header, header_length);
+}
+
+#define MAX_BUFFER_LENGTH 512
+int message_from_client::encode_body(string in) {
+    string buffer;
+    // input should be <type> <symbol> <price> <amount>
+    stringstream input(in);
+    int res;
+    input >> buffer;
+    // if ((res = (input >> buffer)) < 0) {
+    //     return res;
+    // }
+    
+    if (!buffer.compare("bid") || !buffer.compare("b")) {
+        _message_type = BID;
+    } else if (!buffer.compare("offer") || !buffer.compare("o")) {
+        _message_type = OFFER;
+    } else if (!buffer.compare("exit")) {
+        return 0; // done
+    } else {
+        return -1;
+    }
+    
+    bid_offer bo;
+    input >> bo.sym >> bo.value >> bo.volume;
+    // if ((res = (input >> bo.sym >> bo.value >> bo.volume)) < 0) {
+    //     return res;
+    // }
+    
+    // 4 is SYMBOL_LEN
+    res = std::sprintf(body(), "%4s %lf %d", 
+        bo.sym.c_str(), bo.value, bo.volume);
+    if (res < 0) {
+        return res;
+    }
+    _body_length = res;
+    
+    encode_header();
+    return _body_length;
 }
 
 // --------message from server->client--------

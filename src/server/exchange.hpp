@@ -6,7 +6,8 @@
 #include <queue>
 #include <memory>
 #include <boost/asio.hpp>
-#include "bid_offer.cpp"
+
+#include "bid_offer.hpp"
 #include "message/message.hpp"
 
 using boost::asio::ip::tcp;

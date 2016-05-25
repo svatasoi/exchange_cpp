@@ -5,14 +5,15 @@
 #include <memory>
 #include <future>
 #include <boost/asio.hpp>
-#include "linked_list/linked_list.cpp"
-#include "concurrent_map/concurrent_map.cpp"
-#include "bid_offer.cpp"
-#include "./exchange.hpp"
+
+#include "bid_offer.hpp"
+#include "server/exchange.hpp"
 #include "message/message.hpp"
 
 using boost::asio::ip::tcp;
 using namespace std;
+
+map<token_t, Client*> Client::_all_clients;
 
 // -----------------client_session-----------------
 
@@ -25,6 +26,7 @@ size_t client_session::get_hash() {
 }
 
 void client_session::start() {
+    cout << "Connecting to new client..." << endl;
     // register as client to exchange
     Client *c = Client::connect(shared_from_this());
     
@@ -34,9 +36,11 @@ void client_session::start() {
     
     // start reading from client
     async(std::launch::async, [this](){ do_read_header(); });
+    cout << "Connected to new client!" << endl;
 }
 
 void client_session::terminate() {
+    cout << "Terminating client session" << endl;
     Client::disconnect(shared_from_this());
 }
 
@@ -81,12 +85,12 @@ void client_session::do_read_body()
                 // pass header,body to handle_message
                 try {
                     int err = handle_message(_client_msg.data(), _client_msg.body());
-                    if (!err)
-                        do_read_header();
-                    else
+                    if (err < 0)
                         terminate();
+                    else
+                        do_read_header();
                 }
-                catch (exception &ex) {
+                catch (...) {
                     terminate();
                 }
             }
@@ -109,6 +113,7 @@ int client_session::handle_message(const char *header, const char *body) {
     default:
         throw "Unknown type";
     };
+    return 0;
 }
 
 void client_session::do_write()

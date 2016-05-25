@@ -8,7 +8,7 @@
 #include <set>
 #include <queue>
 #include <boost/asio.hpp>
-#include "server/exchange.cpp"
+#include "server/exchange.hpp"
 
 using boost::asio::ip::tcp;
 

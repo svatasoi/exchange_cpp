@@ -4,7 +4,9 @@
 #include <thread>
 #include <vector>
 #include <boost/test/unit_test.hpp>
-#include "linked_list/linked_list.cpp"
+#include "IContainer.cpp"
+
+using namespace std;
 
 inline int compare_str(string& s1, string& s2) {
 	return s1.compare(s2);
