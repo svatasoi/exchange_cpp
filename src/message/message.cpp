@@ -11,11 +11,7 @@ int message_from_client::encode_body(string in) {
     string buffer;
     // input should be <type> <symbol> <price> <amount>
     stringstream input(in);
-    int res;
     input >> buffer;
-    // if ((res = (input >> buffer)) < 0) {
-    //     return res;
-    // }
     
     if (!buffer.compare("bid") || !buffer.compare("b")) {
         _message_type = BID;

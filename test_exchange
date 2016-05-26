@@ -16,6 +16,13 @@ if [ -z $1 ]
         NUMTHREADS=$1
 fi
 
+if [ $2 = "w" ] 
+    then
+        WINDOWED=1
+    else
+        WINDOWED=0
+fi
+
 start_server () {
     echo "Starting server on port $SERVERPORT"
     ./server $SERVERPORT | awk '{print "[SERVER] " $0}' &
@@ -35,7 +42,12 @@ pids=()
 echo "Starting $NUMTHREADS clients..."
 for (( i=1; i<=$NUMTHREADS; i++ ))
 do
-	run_client 2>&1 > $LOGDIR/client$i.log & 
+    if [ $WINDOWED -eq 0 ]
+        then
+	        run_client 2>&1 > $LOGDIR/client$i.log & 
+        else
+            xterm -e ./client $HOST $SERVERPORT &
+    fi
     pids+=($!)
 done
 
