@@ -89,3 +89,16 @@ int message_from_server::encode_body(bid &b, offer &o) {
     encode_header();
     return _body_length;
 }
+
+int message_from_server::encode_body(string &msg) {
+    server_err_body_t bod{};
+    
+    std::memcpy(bod.msg, msg.c_str(), MAX_MSG_SIZE); 
+    std::memcpy(body(), &bod, sizeof(bod));
+    
+    _message_type = SERVER_ERROR;
+    _body_length = sizeof(bod);
+    
+    encode_header();
+    return _body_length;
+}

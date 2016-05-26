@@ -182,6 +182,11 @@ int client_session::handle_message(const char *head, const char *body) {
             client_quote_body_t *q = (client_quote_body_t *)(body);
             if (!_exchange.get_quote(q->sym, &b, &o)) {
                 // no quote possible
+                message_from_server msg;
+                string err = "Couldn't quote ";
+                err += q->sym;
+                msg.encode_body(err);
+                deliver(msg);
             } else {
                 // send quote back
                 message_from_server msg;
@@ -291,12 +296,23 @@ void exchange::add_offer(offer o, token_t tok) {
 }
 
 bool exchange::get_quote(symbol_t sym, bid *b, offer *o) {
-    try {
-        *b = _bids[sym].top();
-        *o = _offers[sym].top();
-    } catch (...) {
+    auto &bid_q = _bids[sym];
+    auto &offer_q = _offers[sym];
+    
+    bid_q.lock();
+    offer_q.lock();
+    
+    if (bid_q.empty() || offer_q.empty()) {
+        offer_q.unlock();
+        bid_q.unlock();
         return false;
     }
+    
+    *b = bid_q.top();
+    *o = offer_q.top();
+    
+    offer_q.unlock();
+    bid_q.unlock();
     return true;
 }
 

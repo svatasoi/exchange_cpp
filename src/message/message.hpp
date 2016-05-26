@@ -26,7 +26,7 @@ struct client_quote_body_t {
 
 // ---------------server message types---------------
 
-enum server_message_type { MATCH=0, QUOTE_RESPONSE=1 };
+enum server_message_type { MATCH=0, QUOTE_RESPONSE=1, SERVER_ERROR=2 };
 struct server_header_t {
     server_message_type type;
     int body_length;
@@ -45,6 +45,11 @@ struct server_quote_body_t {
     int bid_vol;
     double offer;
     int offer_vol;
+};
+
+#define MAX_MSG_SIZE 128
+struct server_err_body_t {
+    char msg[MAX_MSG_SIZE];
 };
 
 // ---------------message classes---------------
@@ -161,4 +166,5 @@ class message_from_server : public message<server_header_t, server_message_type>
 public:
     int encode_body(symbol_t sym, double price, int volume, bool buyer);
     int encode_body(bid &b, offer &o);
+    int encode_body(string &msg);
 };

@@ -109,10 +109,15 @@ private:
 			}
 			break;
 		case QUOTE_RESPONSE:
-			// cast body
 			{
 				server_quote_body_t *quote = (server_quote_body_t *)(body);
 				cout << "[QUOTE] " << quote->sym << ": $" << quote->bid << " @ $" << quote->offer << endl;
+			}
+			break;
+		case SERVER_ERROR:
+			{
+				server_err_body_t *err = (server_err_body_t *)(body);
+				cout << "[ERR] " << err->msg << endl;
 			}
 			break;
 		default:
