@@ -97,7 +97,7 @@ public:
     void check_matches(symbol_t sym);
     bool get_quote(symbol_t sym, bid *b, offer *o);
 private:
-    void match(bid &b, offer &o);
+    void match(token_t buyer_tok, token_t seller_tok, symbol_t sym, double price, int volume);
     
     // NOT YET THREAD SAFE
     // also, one of these needs to be in reverse order!

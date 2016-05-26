@@ -116,54 +116,6 @@ void client_session::do_read_body()
         });
 }
 
-
-/* Sequential read :(
-void client_session::do_read_header()
-{
-    boost::system::error_code ec;
-    boost::asio::read(_socket, boost::asio::buffer(_client_msg.data(), message::header_length), ec);
-        
-    if (!ec && _client_msg.decode_header())
-    {
-        do_read_body();
-    }
-    else
-    {
-        cout << "Error reading message header [" << ec << "]: " << ec.message() << " | " << _client_msg.data() << endl;
-        terminate();
-    }
-}
-
-void client_session::do_read_body()
-{
-    boost::system::error_code ec;
-    cout << "Bout to read " << _client_msg.body_length() << " bytes" << endl;
-    boost::asio::read(_socket, boost::asio::buffer(_client_msg.body(), _client_msg.body_length()), ec);
-    if (!ec)
-    {
-        // process header+body (stored in _client_msg)
-        // pass header,body to handle_message
-        try {
-            int err = handle_message(_client_msg.data(), _client_msg.body());
-            if (err < 0) {
-                cout << "Error handling message" << endl;
-                terminate();
-            } else
-                do_read_header();
-        }
-        catch (...) {
-            cout << "Exception handling message" << endl;
-            terminate();
-        }
-    }
-    else
-    {
-        cout << " Error reading body" << endl;
-        terminate();
-    }
-}
-*/
-
 int client_session::handle_message(const char *head, const char *body) {
     client_header_t *header = (client_header_t *)head;
     token_t tok = _client->get_token();
@@ -318,10 +270,6 @@ bool exchange::get_quote(symbol_t sym, bid *b, offer *o) {
 
 void exchange::check_matches(symbol_t sym) {
     // try to match bid+offer
-    // get symbol_t
-    // lock both priority_queue's
-    // while best_bid >= best_offer (and not same buyer/seller)
-    // match best to best
     auto &bid_q = _bids[sym];
     auto &offer_q = _offers[sym];
     
@@ -334,34 +282,54 @@ void exchange::check_matches(symbol_t sym) {
         return;
     }
         
-    // volume!!
-    // lock
-    bid matched_bid;
-    offer matched_offer;
-    while (!bid_q.empty() && !offer_q.empty() 
-        && (matched_bid = bid_q.top()) >= (matched_offer = offer_q.top())) {
+    while (!bid_q.empty() && !offer_q.empty()) {
+        bid matched_bid = bid_q.top();
+        offer matched_offer = offer_q.top();
+        
+        if (matched_bid < matched_offer)
+            break;
+        
         // logic of removing from volume+bid/offer if necessary
-        bid_q.pop();
-        offer_q.pop();
-        match(matched_bid, matched_offer);
+        match(matched_bid.token, matched_offer.token, 
+            sym, matched_offer.value, 
+            matched_bid.volume > matched_offer.volume 
+                ? matched_offer.volume 
+                : matched_bid.volume);
+        
+        if (matched_bid.volume > matched_offer.volume) {
+            matched_bid.volume -= matched_offer.volume;
+            bid_q.pop();
+            bid_q.push(matched_bid);
+            
+            offer_q.pop();
+        } else if (matched_bid.volume == matched_offer.volume) {
+            bid_q.pop();
+            offer_q.pop();
+        } else {
+            matched_offer.volume -= matched_bid.volume;
+            offer_q.pop();
+            offer_q.push(matched_offer);
+            
+            bid_q.pop();
+        }
     }
     offer_q.unlock();
     bid_q.unlock();
-    // unlock
 }
 
-void exchange::match(bid &b, offer &o) {
-    cout << "Matched bid " << b.value << " and offer " << o.value << endl;
+void exchange::match(token_t buyer_tok, token_t seller_tok, symbol_t sym, double price, int volume) {
+    cout << "Matched buyer " << buyer_tok << " and seller " << seller_tok 
+        << " for " << volume << " " << sym << " @ $" << price << endl;
     // notify both clients that it was sold at offer
-    auto buyer = Client::all_clients[b.token];
-    auto seller = Client::all_clients[o.token];
+    auto buyer = Client::all_clients[buyer_tok];
+    auto seller = Client::all_clients[seller_tok];
     
     message_from_server msg_to_buyer;
     message_from_server msg_to_seller;
     
     // symbol_t sym, double price, int volume, bool buyer
-    msg_to_buyer.encode_body(b.sym, o.value, o.volume, true);
-    msg_to_seller.encode_body(b.sym, o.value, o.volume, false);
+    msg_to_buyer.encode_body(sym, price, volume, true);
+    msg_to_seller.encode_body(sym, price, volume, false);
     
     buyer->deliver(msg_to_buyer);
     seller->deliver(msg_to_seller);
