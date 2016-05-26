@@ -12,7 +12,7 @@ using namespace std;
 bid_offer::bid_offer() : sym("aaaa"), value(-1), volume(-1) {}
 
 bid_offer::bid_offer(const char *msg) {
-    client_body_t *body = (client_body_t *)(msg);
+    client_bidoffer_body_t *body = (client_bidoffer_body_t *)(msg);
     sym = string(body->sym);
     value = body->price;
     volume = body->volume;

@@ -44,7 +44,7 @@ private:
     exchange& _exchange;
     message_from_client _client_msg;
     Client *_client;
-//   chat_message_queue write_msgs_;
+    deque<message_from_server> _write_msgs;
 };
 
 typedef shared_ptr<client_session> client_sess_ptr;
@@ -58,17 +58,19 @@ public:
     static void disconnect(client_sess_ptr session);
     
     token_t get_token();
+    void deliver(const message_from_server& msg);
     
     friend bool operator< (const Client &c1, const Client &c2) {
         return c1._token < c2._token;
     }
+    
+    static map<token_t, Client*> all_clients;
 private:
     explicit Client(client_sess_ptr session);
     void message_client();
     
     client_sess_ptr _session; // ptr to active session, if there is one
     token_t _token;
-    static map<token_t, Client*> _all_clients;
     static mutex _mtx;
 };
 
@@ -93,9 +95,8 @@ public:
     void add_bid(bid b, token_t tok);
     void add_offer(offer b, token_t tok);
     void check_matches(symbol_t sym);
-    void get_quote();
+    bool get_quote(symbol_t sym, bid *b, offer *o);
 private:
-    set<Client *> _clients;
     void match(bid &b, offer &o);
     
     // NOT YET THREAD SAFE

@@ -15,7 +15,7 @@
 using boost::asio::ip::tcp;
 using namespace std;
 
-map<token_t, Client*> Client::_all_clients;
+map<token_t, Client*> Client::all_clients;
 mutex Client::_mtx;
 
 // -----------------client_session-----------------
@@ -49,24 +49,29 @@ void client_session::terminate() {
 
 void client_session::deliver(const message_from_server& msg)
 {
-    // bool write_in_progress = !write_msgs_.empty();
-    // write_msgs_.push_back(msg);
-    // if (!write_in_progress)
-    // {
-    //     do_write();
-    // }
+    bool write_in_progress = !_write_msgs.empty();
+    _write_msgs.push_back(msg);
+    if (!write_in_progress)
+    {
+        do_write();
+    }
 }
 
 void client_session::do_read_header()
 {
     auto self(shared_from_this());
     boost::asio::async_read(_socket,
-        boost::asio::buffer(_client_msg.data(), message::header_length),
+        boost::asio::buffer(_client_msg.data(), message_from_client::header_length),
         [this, self](boost::system::error_code ec, std::size_t)
         {
             if (!ec && _client_msg.decode_header())
             {
-                do_read_body(); // couldn't this cause stack overflow? mutually recursive
+                if (_client_msg.is_exit_msg()) {
+                    cout << "Client Exiting" << endl;
+                    terminate();
+                } else 
+                    do_read_body(); 
+                    // couldn't this cause stack overflow? mutually recursive
             }
             else
             {
@@ -92,7 +97,10 @@ void client_session::do_read_body()
                     if (err < 0) {
                         cout << "Error handling message" << endl;
                         terminate();
-                    } else
+                    } else if (err == 0) {
+                        cout << "Client exited" << endl;
+                        terminate();
+                    } else 
                         do_read_header();
                 }
                 catch (...) {
@@ -102,7 +110,7 @@ void client_session::do_read_body()
             }
             else
             {
-                cout << " Error reading body" << endl;
+                cout << "Error reading body" << endl;
                 terminate();
             }
         });
@@ -157,15 +165,33 @@ void client_session::do_read_body()
 */
 
 int client_session::handle_message(const char *head, const char *body) {
-    // client_header_t head = static_cast<client_header_t>(header);
     client_header_t *header = (client_header_t *)head;
+    token_t tok = _client->get_token();
     switch (header->type) {
     case BID:
-        _exchange.add_bid(static_cast<bid>(body), _client->get_token());
+        _exchange.add_bid(static_cast<bid>(body), tok);
         break;
     case OFFER:
-        _exchange.add_offer(static_cast<offer>(body), _client->get_token());
+        _exchange.add_offer(static_cast<offer>(body), tok);
         break;
+    case QUOTE:
+        // cast body
+        {
+            bid b; 
+            offer o;
+            client_quote_body_t *q = (client_quote_body_t *)(body);
+            if (!_exchange.get_quote(q->sym, &b, &o)) {
+                // no quote possible
+            } else {
+                // send quote back
+                message_from_server msg;
+                msg.encode_body(b, o);
+                deliver(msg);
+            }
+        }
+        return 1;
+    case EXIT:
+        return 0;
     default:
         throw "Unknown type";
     };
@@ -174,30 +200,30 @@ int client_session::handle_message(const char *head, const char *body) {
     bid_offer bo = static_cast<bid_offer>(body);
     _exchange.check_matches(bo.sym);
     
-    return 0;
+    return 1;
 }
 
 void client_session::do_write()
 {
-    // auto self(shared_from_this());
-    // boost::asio::async_write(socket_,
-    //     boost::asio::buffer(write_msgs_.front().data(),
-    //         write_msgs_.front().length()),
-    //     [this, self](boost::system::error_code ec, std::size_t)
-    //     {
-    //         if (!ec)
-    //         {
-    //             write_msgs_.pop_front();
-    //             if (!write_msgs_.empty())
-    //             {
-    //                 do_write();
-    //             }
-    //         }
-    //         else
-    //         {
-    //             terminate();
-    //         }
-    //     });
+    auto self(shared_from_this());
+    boost::asio::async_write(_socket,
+        boost::asio::buffer(_write_msgs.front().data(),
+            _write_msgs.front().length()),
+        [this, self](boost::system::error_code ec, std::size_t)
+        {
+            if (!ec)
+            {
+                _write_msgs.pop_front();
+                if (!_write_msgs.empty())
+                {
+                    do_write();
+                }
+            }
+            else
+            {
+                terminate();
+            }
+        });
 }
 
 // -----------------Client--------------------------
@@ -212,25 +238,32 @@ token_t Client::get_token() {
 Client *Client::connect(client_sess_ptr session) {
     _mtx.lock();
     size_t hash = session->get_hash();
-    auto cli = _all_clients.find(session->get_hash());
-    if (cli == _all_clients.end()) {
+    auto cli = all_clients.find(session->get_hash());
+    if (cli == all_clients.end()) {
         // client doesn't exist
-        _all_clients[hash] = new Client(session);
-        cout << "New client (" << _all_clients[hash]->get_token() << ") has connected" << endl;
+        all_clients[hash] = new Client(session);
+        cout << "New client (" << all_clients[hash]->get_token() << ") has connected" << endl;
     } else {
         // client already exists
-        _all_clients[hash]->_session = session;
-        cout << "Welcome back (" << _all_clients[hash]->get_token() << ")" << endl;
+        all_clients[hash]->_session = session;
+        cout << "Welcome back (" << all_clients[hash]->get_token() << ")" << endl;
     }
     _mtx.unlock();
-    return _all_clients[hash];
+    return all_clients[hash];
 }
 
 void Client::disconnect(client_sess_ptr session) {
-    _all_clients.erase(session->get_hash());
+    all_clients.erase(session->get_hash());
+}
+
+
+void Client::deliver(const message_from_server& msg) {
+    _session->deliver(msg);
 }
 
 // -----------------exchange--------------------------
+
+exchange::exchange() {}
 
 #define NUM_BUCKETS 20
 inline int silly_hash(string &s) {
@@ -257,6 +290,16 @@ void exchange::add_offer(offer o, token_t tok) {
     cout << "[client " << tok << "]: " << o.volume << " " << o.sym << " offer @ $" << o.value << endl;
 }
 
+bool exchange::get_quote(symbol_t sym, bid *b, offer *o) {
+    try {
+        *b = _bids[sym].top();
+        *o = _offers[sym].top();
+    } catch (...) {
+        return false;
+    }
+    return true;
+}
+
 void exchange::check_matches(symbol_t sym) {
     // try to match bid+offer
     // get symbol_t
@@ -281,6 +324,7 @@ void exchange::check_matches(symbol_t sym) {
     offer matched_offer;
     while (!bid_q.empty() && !offer_q.empty() 
         && (matched_bid = bid_q.top()) >= (matched_offer = offer_q.top())) {
+        // logic of removing from volume+bid/offer if necessary
         bid_q.pop();
         offer_q.pop();
         match(matched_bid, matched_offer);
@@ -292,16 +336,21 @@ void exchange::check_matches(symbol_t sym) {
 
 void exchange::match(bid &b, offer &o) {
     cout << "Matched bid " << b.value << " and offer " << o.value << endl;
-}
+    // notify both clients that it was sold at offer
+    auto buyer = Client::all_clients[b.token];
+    auto seller = Client::all_clients[o.token];
     
-exchange::exchange() {
-    /*LinkedList<symbol_t, priority_queue<bid>> list(&compare_str, "", new priority_queue<bid>());
-    bids_ = new ConcurrentMap(&silly_hash, list, NUM_BUCKETS); 
+    message_from_server msg_to_buyer;
+    message_from_server msg_to_seller;
     
-    LinkedList<symbol_t, priority_queue<offer>> list_o(&compare_str, "", new priority_queue<offer>());
-    offers_ = new ConcurrentMap(&silly_hash, list_o, NUM_BUCKETS); */
+    // symbol_t sym, double price, int volume, bool buyer
+    msg_to_buyer.encode_body(b.sym, o.value, o.volume, true);
+    msg_to_seller.encode_body(b.sym, o.value, o.volume, false);
+    
+    buyer->deliver(msg_to_buyer);
+    seller->deliver(msg_to_seller);
 }
 
 void exchange::join(Client *client) {
-    _clients.insert(client);
+    // _clients.insert(client);
 }

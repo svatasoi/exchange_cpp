@@ -5,86 +5,8 @@
 #include "server/bid_offer.hpp"
 #include "message.hpp"
 
-// -------generic message---------
-
-message::message() : _body_length(0) {}
-
-const char* message::data() const
-{
-    return _data;
-}
-
-char* message::data()
-{
-    return _data;
-}
-
-std::size_t message::length() const
-{
-    return header_length + _body_length;
-}
-
-const char* message::body() const
-{
-    return _data + header_length;
-}
-
-char* message::body()
-{
-    return _data + header_length;
-}
-
-std::size_t message::body_length() const
-{
-    return _body_length;
-}
-
-void message::body_length(std::size_t new_length)
-{
-    _body_length = new_length;
-    if (_body_length > max_body_length)
-        _body_length = max_body_length;
-}
-
 // --------message from client->server--------
 
-bool message_from_client::decode_header() {
-    // char header[header_length + 1] = "";
-    // std::strncat(header, _data, header_length);
-    
-    // stringstream head{string(header)};
-    
-    // int mess_type;
-    // head >> mess_type >> _body_length;
-    
-    // _message_type = static_cast<client_message_type>(mess_type);
-    
-    client_header_t *header = (client_header_t *)_data;
-    _message_type = header->type;
-    _body_length = header->body_length;
-    // std::memcpy(_data, &header, header_length);
-    
-    if (_body_length > max_body_length)
-    {
-      _body_length = 0;
-      return false;
-    }
-    return true;
-}
-
-void message_from_client::encode_header() {
-    // char header[header_length + 1] = "";
-    // std::sprintf(header, "%d %d", 
-    //     static_cast<int>(_message_type), 
-    //     static_cast<int>(_body_length));
-    
-    client_header_t header{};
-    header.type = _message_type;
-    header.body_length = _body_length;
-    std::memcpy(_data, &header, header_length);
-}
-
-#define MAX_BUFFER_LENGTH 512
 int message_from_client::encode_body(string in) {
     string buffer;
     // input should be <type> <symbol> <price> <amount>
@@ -99,7 +21,17 @@ int message_from_client::encode_body(string in) {
         _message_type = BID;
     } else if (!buffer.compare("offer") || !buffer.compare("o")) {
         _message_type = OFFER;
+    } else if (!buffer.compare("quote") || !buffer.compare("q")) {
+        symbol_t sym;
+        input >> sym;
+        std::memcpy(body(), sym.c_str(), SYMBOL_LEN);
+        _body_length = sizeof(client_quote_body_t);
+        _message_type = QUOTE;
+        encode_header();
+        return _body_length;
     } else if (!buffer.compare("exit")) {
+        _message_type = EXIT;
+        _body_length = 0;
         return 0; // done
     } else {
         return -1;
@@ -107,34 +39,53 @@ int message_from_client::encode_body(string in) {
     
     bid_offer bo;
     input >> bo.sym >> bo.value >> bo.volume;
-    // if ((res = (input >> bo.sym >> bo.value >> bo.volume)) < 0) {
-    //     return res;
-    // }
-    
-    // 4 is SYMBOL_LEN
-    res = std::sprintf(body(), "%4s %lf %d", 
-        bo.sym.c_str(), bo.value, bo.volume);
-        
-    client_body_t bod{};
+         
+    client_bidoffer_body_t bod{};
     std::memcpy(bod.sym, bo.sym.c_str(), SYMBOL_LEN); 
     bod.price = bo.value;
     bod.volume= bo.volume;
     std::memcpy(body(), &bod, sizeof(bod));
-    // if (res < 0) {
-    //     return res;
-    // }
     _body_length = sizeof(bod);
     
     encode_header();
     return _body_length;
 }
 
-// --------message from server->client--------
-
-bool message_from_server::decode_header() {
-    return false;
+bool message_from_client::is_exit_msg() {
+    return _message_type == EXIT;
 }
 
-void message_from_server::encode_header() {
+// --------message from server->client--------
+
+int message_from_server::encode_body(symbol_t sym, double price, int volume, bool buyer) {
+    server_match_body_t bod{};
     
+    std::memcpy(bod.sym, sym.c_str(), SYMBOL_LEN); 
+    bod.price = price;
+    bod.volume= volume;
+    bod.buyer = buyer;
+    std::memcpy(body(), &bod, sizeof(bod));
+    
+    _message_type = MATCH;
+    _body_length = sizeof(bod);
+    
+    encode_header();
+    return _body_length;
+}
+
+int message_from_server::encode_body(bid &b, offer &o) {
+    server_quote_body_t bod{};
+    
+    std::memcpy(bod.sym, b.sym.c_str(), SYMBOL_LEN); 
+    bod.bid = b.value;
+    bod.bid_vol = b.volume;
+    bod.offer = o.value;
+    bod.offer_vol = o.volume;
+    std::memcpy(body(), &bod, sizeof(bod));
+    
+    _message_type = QUOTE_RESPONSE;
+    _body_length = sizeof(bod);
+    
+    encode_header();
+    return _body_length;
 }

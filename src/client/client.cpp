@@ -82,15 +82,43 @@ private:
         {
           if (!ec)
           {
-            std::cout.write(_read_msg.body(), _read_msg.body_length());
-            std::cout << "\n";
-            do_read_header();
+            int err = handle_message(_read_msg.data(), _read_msg.body());
+			if (err <= 0) {
+				cout << "Error handling message" << endl;
+            	_socket.close();
+			} else 
+            	do_read_header();
           }
           else
           {
             _socket.close();
           }
         });
+  }
+  
+  int handle_message(const char *head, const char *body) {
+		server_header_t *header = (server_header_t *)head;
+		switch (header->type) {
+		case MATCH:
+			{
+				server_match_body_t *match = (server_match_body_t *)(body);
+				if (match->buyer)
+					cout << "[MATCH] Bought " << match->volume << " " << match->sym << " @ $" << match->price << endl;
+				else
+					cout << "[MATCH] Sold " << match->volume << " " << match->sym << " @ $" << match->price << endl;
+			}
+			break;
+		case QUOTE_RESPONSE:
+			// cast body
+			{
+				server_quote_body_t *quote = (server_quote_body_t *)(body);
+				cout << "[QUOTE] " << quote->sym << ": $" << quote->bid << " @ $" << quote->offer << endl;
+			}
+			break;
+		default:
+			throw "Unknown type";
+		};
+		return 1;
   }
 
   void do_write()
@@ -149,9 +177,8 @@ int main(int argc, char* argv[])
           std::cout << "Invalid message" << std::endl;
           continue;
       } else if (err == 0) {
-          std::cout << "Exiting on: " << input << std::endl;
-          break;
-      }
+		  break;
+	  }
       c.write(msg);
     }
     
