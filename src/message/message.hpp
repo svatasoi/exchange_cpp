@@ -15,20 +15,20 @@ struct client_header_t {
 };
 
 struct client_buysell_body_t {
-    char sym[4];
+    char sym[SYMBOL_LEN];
     char nbyte = 0;
     int volume;
 };
 
 struct client_bidoffer_body_t {
-    char sym[4];
+    char sym[SYMBOL_LEN];
     char nbyte = 0;
     double price;
     int volume;
 };
 
 struct client_quote_body_t {
-    char sym[4];
+    char sym[SYMBOL_LEN];
     char nbyte = 0;
 };
 
@@ -41,7 +41,7 @@ struct server_header_t {
 };
 
 struct server_match_body_t {
-    char sym[4];
+    char sym[SYMBOL_LEN];
     char nbyte = 0;
     double price;
     int volume;
@@ -49,7 +49,7 @@ struct server_match_body_t {
 };
 
 struct server_quote_body_t {
-    char sym[4];
+    char sym[SYMBOL_LEN];
     char nbyte = 0;
     double bid;
     int bid_vol;
