@@ -94,11 +94,14 @@ public:
     
     void add_bid(bid b, token_t tok);
     void add_offer(offer b, token_t tok);
+    void buy(token_t tok, symbol_t sym, int volume);
+    void sell(token_t tok, symbol_t sym, int volume);
     void check_matches(symbol_t sym);
     bool get_quote(symbol_t sym, bid *b, offer *o);
 private:
     void match(token_t buyer_tok, token_t seller_tok, symbol_t sym, double price, int volume);
-    
+    void notify_client_of_match(token_t tok, symbol_t sym, double price, int volume, bool is_buyer);
+ 
     // NOT YET THREAD SAFE
     // also, one of these needs to be in reverse order!
     // bids should be max-heap, offers should be min-heap

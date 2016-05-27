@@ -3,7 +3,7 @@
 import sys
 import random
 
-COMMANDS_TYPES=["bid","offer","quote"]
+COMMANDS_TYPES=["bid","offer","buy","sell","quote"]
 SYMBOLS=["MSFT","AAPL","AEGR","SPYX","GOOG"]
 MIN_PRICE=1.0
 MAX_PRICE=1000.0

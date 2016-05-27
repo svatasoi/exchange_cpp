@@ -126,6 +126,18 @@ int client_session::handle_message(const char *head, const char *body) {
     case OFFER:
         _exchange.add_offer(static_cast<offer>(body), tok);
         break;
+    case BUY:
+        {
+            client_buysell_body_t *q = (client_buysell_body_t *)(body);
+            _exchange.buy(tok, q->sym, q->volume);
+        }
+        break;
+    case SELL:
+        {
+            client_buysell_body_t *q = (client_buysell_body_t *)(body);
+            _exchange.sell(tok, q->sym, q->volume);
+        }
+        break;
     case QUOTE:
         // cast body
         {
@@ -247,6 +259,56 @@ void exchange::add_offer(offer o, token_t tok) {
     cout << "[client " << tok << "]: " << o.volume << " " << o.sym << " offer @ $" << o.value << endl;
 }
 
+void exchange::buy(token_t tok, symbol_t sym, int volume) {
+    auto &q = _offers[sym];
+    
+    q.lock();
+        
+    while (!q.empty() && volume > 0) {
+        offer o = q.top();
+        
+        // logic of removing from volume+bid/offer if necessary        
+        if (volume >= o.volume) {
+            // left over volume, so remove
+            volume -= o.volume;
+            match(tok, o.token, sym, o.value, o.volume);
+            q.pop();
+        } else {
+            o.volume -= volume;
+            match(tok, o.token, sym, o.value, volume);
+            q.pop();
+            q.push(o);
+            break;
+        }
+    }
+    q.unlock();
+}
+
+void exchange::sell(token_t tok, symbol_t sym, int volume) {
+    auto &q = _bids[sym];
+    
+    q.lock();
+        
+    while (!q.empty() && volume > 0) {
+        bid b = q.top();
+        
+        // logic of removing from volume+bid/offer if necessary        
+        if (volume >= b.volume) {
+            // left over volume, so remove
+            volume -= b.volume;
+            match(b.token, tok, sym, b.value, b.volume);
+            q.pop();
+        } else {
+            b.volume -= volume;
+            match(b.token, tok, sym, b.value, volume);
+            q.pop();
+            q.push(b);
+            break;
+        }
+    }
+    q.unlock();
+}
+
 bool exchange::get_quote(symbol_t sym, bid *b, offer *o) {
     auto &bid_q = _bids[sym];
     auto &offer_q = _offers[sym];
@@ -275,12 +337,6 @@ void exchange::check_matches(symbol_t sym) {
     
     bid_q.lock();
     offer_q.lock();
-    
-    if (bid_q.empty() || offer_q.empty()) {
-        offer_q.unlock();
-        bid_q.unlock();
-        return;
-    }
         
     while (!bid_q.empty() && !offer_q.empty()) {
         bid matched_bid = bid_q.top();
@@ -317,22 +373,24 @@ void exchange::check_matches(symbol_t sym) {
     bid_q.unlock();
 }
 
+void exchange::notify_client_of_match(token_t tok, symbol_t sym, double price, int volume, bool is_buyer) {
+    // notify both clients that it was sold at offer
+    auto client = Client::all_clients[tok];
+    
+    message_from_server msg;
+    
+    // symbol_t sym, double price, int volume, bool buyer
+    msg.encode_body(sym, price, volume, is_buyer);
+    
+    client->deliver(msg);
+}
+
 void exchange::match(token_t buyer_tok, token_t seller_tok, symbol_t sym, double price, int volume) {
     cout << "Matched buyer " << buyer_tok << " and seller " << seller_tok 
         << " for " << volume << " " << sym << " @ $" << price << endl;
     // notify both clients that it was sold at offer
-    auto buyer = Client::all_clients[buyer_tok];
-    auto seller = Client::all_clients[seller_tok];
-    
-    message_from_server msg_to_buyer;
-    message_from_server msg_to_seller;
-    
-    // symbol_t sym, double price, int volume, bool buyer
-    msg_to_buyer.encode_body(sym, price, volume, true);
-    msg_to_seller.encode_body(sym, price, volume, false);
-    
-    buyer->deliver(msg_to_buyer);
-    seller->deliver(msg_to_seller);
+    notify_client_of_match(buyer_tok, sym, price, volume, true);
+    notify_client_of_match(seller_tok, sym, price, volume, false);
 }
 
 void exchange::join(Client *client) {

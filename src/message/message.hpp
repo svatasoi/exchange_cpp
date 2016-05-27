@@ -8,20 +8,28 @@
 
 // ---------------client message types---------------
 
-enum client_message_type { BID=0, OFFER=1, QUOTE=2, EXIT=3 };
+enum client_message_type { BID=0, OFFER=1, BUY=2, SELL=3, QUOTE=4, EXIT=5 };
 struct client_header_t {
     client_message_type type;
     int body_length;
 };
 
+struct client_buysell_body_t {
+    char sym[4];
+    char nbyte = 0;
+    int volume;
+};
+
 struct client_bidoffer_body_t {
     char sym[4];
+    char nbyte = 0;
     double price;
     int volume;
 };
 
 struct client_quote_body_t {
     char sym[4];
+    char nbyte = 0;
 };
 
 // ---------------server message types---------------
@@ -34,6 +42,7 @@ struct server_header_t {
 
 struct server_match_body_t {
     char sym[4];
+    char nbyte = 0;
     double price;
     int volume;
     bool buyer; // true for if receiver is buyer, false for seller
@@ -41,6 +50,7 @@ struct server_match_body_t {
 
 struct server_quote_body_t {
     char sym[4];
+    char nbyte = 0;
     double bid;
     int bid_vol;
     double offer;

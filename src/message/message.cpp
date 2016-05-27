@@ -17,6 +17,23 @@ int message_from_client::encode_body(string in) {
         _message_type = BID;
     } else if (!buffer.compare("offer") || !buffer.compare("o")) {
         _message_type = OFFER;
+    } else if (!buffer.compare("buy") || !buffer.compare("sell")) {
+        if (!buffer.compare("buy"))
+            _message_type = BUY;
+        else
+            _message_type = SELL;
+            
+        client_buysell_body_t bod{};
+        symbol_t sym;
+        int volume;
+        input >> volume >> sym;
+        
+        std::memcpy(bod.sym, sym.c_str(), SYMBOL_LEN);
+        bod.volume = volume;
+        std::memcpy(body(), &bod, sizeof(bod));
+        _body_length = sizeof(client_buysell_body_t);
+        encode_header();
+        return _body_length;
     } else if (!buffer.compare("quote") || !buffer.compare("q")) {
         symbol_t sym;
         input >> sym;
